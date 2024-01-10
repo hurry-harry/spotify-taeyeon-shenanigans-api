@@ -9,6 +9,9 @@ var cors = require("cors");
 var queryString = require("querystring");
 var cookieParser = require("cookie-parser");
 
+var code_verifier_test_1 = "";
+var code_verifier_test_2 = "";
+
 app.use(cors()).use(cookieParser());
 
 app.get("/", (req, res) => {
@@ -32,19 +35,48 @@ var generateRandomString = function (length) {
     return values.reduce((acc, x) => acc + possible[x % possible.length], "");
 };
 
-const codeVerifier = generateRandomString(64);
+// const codeVerifier = generateRandomString(64);
+const randomString = generateRandomString(64);
 
 var hashAndEncode = function (toHash) {
     return Buffer.from(createHash("sha256").update(toHash).digest("hex")).toString("base64");
 };
 
+var hashAndEncode2 = function (toHash) {
+    // const hashed = createHash("sha256").update(toHash).digest("base64url");
+
+    // console.log("hash", hashed);
+
+    // // encode to Base64url
+    // const encoded = btoa(String.fromCharCode.apply(null, new Uint8Array(hashed))
+    //     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''));
+
+    // console.log("encoded", encoded);
+
+    // return hashed;
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(toHash);
+    const hashed1 = createHash("sha256").update(data).digest("base64url");
+    const hashed2 = createHash("sha256").update(data).digest("hex");
+
+    console.log("hash test 1", hashed1);
+    console.log("hash test 2", hashed2);
+    
+    return hashed2;
+}
+
 app.get("/login", (req, res) => {
     const state = generateRandomString(16);
     res.cookie(process.env.STATE_KEY, state);
 
-    console.log('codeVerifier init', codeVerifier);
-    const codeChallenge = hashAndEncode(codeVerifier);
+    console.log('randomString codeVerifier init', randomString);
+    code_verifier_test_1 = hashAndEncode(randomString);
+    code_verifier_test_2 = hashAndEncode2(randomString);
     const scopes = "user-top-read";
+
+    console.log("hashedAndEncoded1", code_verifier_test_1);
+    console.log("hashedAndEncoded2", code_verifier_test_2);
 
     res.redirect(process.env.AUTH_URL +
         queryString.stringify({
@@ -52,7 +84,7 @@ app.get("/login", (req, res) => {
             client_id: process.env.CLIENT_ID,
             scope: scopes,
             code_challenge_method: "S256",
-            code_challenge: codeChallenge,
+            code_challenge: code_verifier_test_2,
             redirect_uri: process.env.REDIRECT_URI,
             state: state
         }));
@@ -81,7 +113,7 @@ app.get("/callback/", (req, res) => {
                 grant_type: "authorization_code",
                 code: code,
                 redirect_uri: process.env.REDIRECT_URI,
-                code_verifier: codeVerifier
+                code_verifier: code_verifier_test_2
             },
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
